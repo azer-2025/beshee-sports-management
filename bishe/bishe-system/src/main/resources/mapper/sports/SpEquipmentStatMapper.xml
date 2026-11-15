@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bishe.system.mapper.sports.SpEquipmentStatMapper">
+
+    <select id="selectSummary" resultType="java.util.HashMap">
+        select
+            (select count(1) from sp_equipment_asset where del_flag = '0') as totalAssets,
+            (select count(1) from sp_equipment_category where del_flag = '0') as totalCategories,
+            (select count(1) from sp_equipment_borrow where del_flag = '0') as totalBorrowRecords,
+            (select count(1) from sp_equipment_borrow where del_flag = '0' and status = '0') as pendingBorrowApprovals,
+            (select count(1) from sp_equipment_borrow where del_flag = '0' and status = '5') as overdueBorrows,
+            (select count(1) from sp_equipment_repair where del_flag = '0' and status in ('1', '2')) as repairingAssets
+    </select>
+
+    <select id="selectUsageRanking" resultType="java.util.HashMap">
+        select
+            a.asset_id as assetId,
+            a.asset_name as assetName,
+            c.category_name as categoryName,
+            ifnull(sum(b.quantity), 0) as useCount,
+            round(if(a.stock_qty = 0, 0, (ifnull(sum(b.quantity), 0) / (a.stock_qty * 12)) * 100), 2) as usageRate
+        from sp_equipment_asset a
+        left join sp_equipment_category c on a.category_id = c.category_id and c.del_flag = '0'
+        left join sp_equipment_borrow b on a.asset_id = b.asset_id
+            and b.del_flag = '0'
+            and b.status in ('1', '3', '4', '5')
+        where a.del_flag = '0'
+        group by a.asset_id, a.asset_name, c.category_name, a.stock_qty
+        order by useCount desc, a.asset_id asc
+        limit 10
+    </select>
+
+    <select id="selectDamageReason" resultType="java.util.HashMap">
+        select
+            d.dict_label as reasonLabel,
+            r.fault_reason as reasonValue,
+            count(1) as total
+        from sp_equipment_repair r
+        left join sys_dict_data d on d.dict_type = 'sp_repair_reason'
+            and d.dict_value = r.fault_reason
+        where r.del_flag = '0'
+        group by r.fault_reason, d.dict_label
+        order by total desc
+    </select>
+
+    <select id="selectMonthlyBorrowTrend" resultType="java.util.HashMap">
+        select
+            m.mon as month,
+            ifnull(t.total, 0) as borrowCount
+        from (
+            select date_format(date_sub(curdate(), interval 11 month), '%Y-%m') as mon
+            union all select date_format(date_sub(curdate(), interval 10 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 9 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 8 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 7 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 6 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 5 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 4 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 3 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 2 month), '%Y-%m')
+            union all select date_format(date_sub(curdate(), interval 1 month), '%Y-%m')
+            union all select date_format(curdate(), '%Y-%m')
+        ) m
+        left join (
+            select date_format(create_time, '%Y-%m') as mon, count(1) as total
+            from sp_equipment_borrow
+            where del_flag = '0'
+            group by date_format(create_time, '%Y-%m')
+        ) t on m.mon = t.mon
+        order by m.mon asc
+    </select>
+
+    <select id="selectSuggestionReport" resultType="com.bishe.system.domain.sports.SpSuggestionReport">
+        select
+            #{statMonth} as statMonth,
+            a.asset_id as assetId,
+            a.asset_name as assetName,
+            c.category_name as categoryName,
+            a.stock_qty as stockQty,
+            a.available_qty as availableQty,
+            ifnull(b.monthBorrowCount, 0) as monthBorrowCount,
+            ifnull(r.monthRepairCount, 0) as monthRepairCount,
+            ifnull(rt.totalRepairCount, 0) as totalRepairCount,
+            if(a.purchase_date is null, 0, timestampdiff(year, a.purchase_date, #{referenceDate})) as usedYears,
+            round(
+                if(
+                    a.purchase_date is null,
+                    0,
+                    greatest(0, timestampdiff(month, a.purchase_date, #{referenceDate}) / 12 * ifnull(a.depreciation_rate, 0))
+                ),
+                2
+            ) as accumulatedDepRate,
+            case
+                when a.asset_status = '3'
+                    then '建议报废'
+                when a.service_life_year is not null
+                    and a.purchase_date is not null
+                    and timestampdiff(year, a.purchase_date, #{referenceDate}) >= a.service_life_year
+                    then '建议报废'
+                when ifnull(rt.totalRepairCount, 0) >= 5
+                    and ifnull(r.monthRepairCount, 0) > 0
+                    then '建议报废'
+                when a.available_qty &lt;= greatest(1, floor(a.stock_qty * 0.2))
+                    and ifnull(b.monthBorrowCount, 0) >= greatest(6, floor(a.stock_qty * 0.6))
+                    then '建议采购'
+                else '持续观察'
+            end as suggestion,
+            case
+                when a.asset_status = '3'
+                    then '资产状态已报废'
+                when a.service_life_year is not null
+                    and a.purchase_date is not null
+                    and timestampdiff(year, a.purchase_date, #{referenceDate}) >= a.service_life_year
+                    then '超过设定使用年限'
+                when ifnull(rt.totalRepairCount, 0) >= 5
+                    and ifnull(r.monthRepairCount, 0) > 0
+                    then '累计报修频繁且当月仍有故障'
+                when a.available_qty &lt;= greatest(1, floor(a.stock_qty * 0.2))
+                    and ifnull(b.monthBorrowCount, 0) >= greatest(6, floor(a.stock_qty * 0.6))
+                    then '低库存高需求'
+                else '指标稳定，继续观察'
+            end as suggestionReason
+        from sp_equipment_asset a
+        left join sp_equipment_category c on a.category_id = c.category_id and c.del_flag = '0'
+        left join (
+            select asset_id, sum(quantity) as monthBorrowCount
+            from sp_equipment_borrow
+            where del_flag = '0'
+              and status in ('1', '3', '4', '5')
+              and create_time &gt;= #{startTime}
+              and create_time &lt; #{endTime}
+            group by asset_id
+        ) b on a.asset_id = b.asset_id
+        left join (
+            select asset_id, count(1) as monthRepairCount
+            from sp_equipment_repair
+            where del_flag = '0'
+              and create_time &gt;= #{startTime}
+              and create_time &lt; #{endTime}
+            group by asset_id
+        ) r on a.asset_id = r.asset_id
+        left join (
+            select asset_id, count(1) as totalRepairCount
+            from sp_equipment_repair
+            where del_flag = '0'
+            group by asset_id
+        ) rt on a.asset_id = rt.asset_id
+        where a.del_flag = '0'
+        <if test="keyword != null and keyword != ''">
+            and (
+                a.asset_name like concat('%', #{keyword}, '%')
+                or a.asset_code like concat('%', #{keyword}, '%')
+                or c.category_name like concat('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="suggestionType != null and suggestionType != ''">
+            and (
+                case
+                    when a.asset_status = '3'
+                        then '建议报废'
+                    when a.service_life_year is not null
+                        and a.purchase_date is not null
+                        and timestampdiff(year, a.purchase_date, #{referenceDate}) >= a.service_life_year
+                        then '建议报废'
+                    when ifnull(rt.totalRepairCount, 0) >= 5
+                        and ifnull(r.monthRepairCount, 0) > 0
+                        then '建议报废'
+                    when a.available_qty &lt;= greatest(1, floor(a.stock_qty * 0.2))
+                        and ifnull(b.monthBorrowCount, 0) >= greatest(6, floor(a.stock_qty * 0.6))
+                        then '建议采购'
+                    else '持续观察'
+                end
+            ) = #{suggestionType}
+        </if>
+        order by field(
+            case
+                when a.asset_status = '3'
+                    then '建议报废'
+                when a.service_life_year is not null
+                    and a.purchase_date is not null
+                    and timestampdiff(year, a.purchase_date, #{referenceDate}) >= a.service_life_year
+                    then '建议报废'
+                when ifnull(rt.totalRepairCount, 0) >= 5
+                    and ifnull(r.monthRepairCount, 0) > 0
+                    then '建议报废'
+                when a.available_qty &lt;= greatest(1, floor(a.stock_qty * 0.2))
+                    and ifnull(b.monthBorrowCount, 0) >= greatest(6, floor(a.stock_qty * 0.6))
+                    then '建议采购'
+                else '持续观察'
+            end,
+            '建议报废', '建议采购', '持续观察'
+        ),
+        ifnull(b.monthBorrowCount, 0) desc,
+        a.asset_id asc
+    </select>
+
+</mapper>

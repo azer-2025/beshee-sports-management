@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bishe.system.mapper.sports.SpUserProfileExtMapper">
+
+    <resultMap id="SpUserProfileExtResult" type="com.bishe.system.domain.sports.SpUserProfileExt">
+        <result property="userId" column="user_id" />
+        <result property="studentNo" column="student_no" />
+        <result property="coachNo" column="coach_no" />
+        <result property="campus" column="campus" />
+        <result property="college" column="college" />
+        <result property="majorName" column="major_name" />
+        <result property="className" column="class_name" />
+        <result property="idNo" column="id_no" />
+        <result property="emergencyContact" column="emergency_contact" />
+        <result property="emergencyPhone" column="emergency_phone" />
+        <result property="bio" column="bio" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="selectProfileExtVo">
+        select user_id, student_no, coach_no, campus, college, major_name, class_name, id_no,
+               emergency_contact, emergency_phone, bio, create_by, create_time, update_by, update_time, remark
+        from sp_user_profile_ext
+    </sql>
+
+    <select id="selectByUserId" parameterType="Long" resultMap="SpUserProfileExtResult">
+        <include refid="selectProfileExtVo"/>
+        where user_id = #{userId}
+    </select>
+
+    <insert id="insertProfileExt" parameterType="com.bishe.system.domain.sports.SpUserProfileExt">
+        insert into sp_user_profile_ext (
+            user_id, student_no, coach_no, campus, college, major_name, class_name, id_no,
+            emergency_contact, emergency_phone, bio, remark, create_by, create_time, update_by, update_time
+        ) values (
+            #{userId}, #{studentNo}, #{coachNo}, #{campus}, #{college}, #{majorName}, #{className}, #{idNo},
+            #{emergencyContact}, #{emergencyPhone}, #{bio}, #{remark}, #{createBy}, sysdate(), #{updateBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateProfileExt" parameterType="com.bishe.system.domain.sports.SpUserProfileExt">
+        update sp_user_profile_ext
+        <set>
+            <if test="studentNo != null">student_no = #{studentNo},</if>
+            <if test="coachNo != null">coach_no = #{coachNo},</if>
+            <if test="campus != null">campus = #{campus},</if>
+            <if test="college != null">college = #{college},</if>
+            <if test="majorName != null">major_name = #{majorName},</if>
+            <if test="className != null">class_name = #{className},</if>
+            <if test="idNo != null">id_no = #{idNo},</if>
+            <if test="emergencyContact != null">emergency_contact = #{emergencyContact},</if>
+            <if test="emergencyPhone != null">emergency_phone = #{emergencyPhone},</if>
+            <if test="bio != null">bio = #{bio},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where user_id = #{userId}
+    </update>
+
+</mapper>
+

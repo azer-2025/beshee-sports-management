@@ -1,0 +1,26 @@
+:root {
+  --primary-color: #2892f0;
+  --bg-soft: #f5f8fc;
+  --text-main: #1f2d3d;
+  --text-sub: #6b7a90;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--text-main);
+  background: radial-gradient(circle at top right, #f2f8ff 0, #f8fbff 40%, #f6f8fc 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

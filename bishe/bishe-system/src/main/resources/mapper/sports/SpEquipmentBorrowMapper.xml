@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bishe.system.mapper.sports.SpEquipmentBorrowMapper">
+
+    <resultMap id="SpEquipmentBorrowResult" type="com.bishe.system.domain.sports.SpEquipmentBorrow">
+        <result property="borrowId" column="borrow_id" />
+        <result property="assetId" column="asset_id" />
+        <result property="assetName" column="asset_name" />
+        <result property="assetCode" column="asset_code" />
+        <result property="userId" column="user_id" />
+        <result property="userName" column="user_name" />
+        <result property="quantity" column="quantity" />
+        <result property="reserveStartTime" column="reserve_start_time" />
+        <result property="reserveEndTime" column="reserve_end_time" />
+        <result property="borrowTime" column="borrow_time" />
+        <result property="expectedReturnTime" column="expected_return_time" />
+        <result property="actualReturnTime" column="actual_return_time" />
+        <result property="status" column="status" />
+        <result property="rejectReason" column="reject_reason" />
+        <result property="approvalBy" column="approval_by" />
+        <result property="approvalTime" column="approval_time" />
+        <result property="overdueDays" column="overdue_days" />
+        <result property="overdueReason" column="overdue_reason" />
+        <result property="reviewQualityScore" column="review_quality_score" />
+        <result property="reviewPackageScore" column="review_package_score" />
+        <result property="reviewServiceScore" column="review_service_score" />
+        <result property="reviewContent" column="review_content" />
+        <result property="reviewTime" column="review_time" />
+        <result property="reviewBy" column="review_by" />
+        <result property="delFlag" column="del_flag" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="selectBorrowVo">
+        select b.borrow_id, b.asset_id, a.asset_name, a.asset_code, b.user_id, u.user_name, b.quantity,
+               b.reserve_start_time, b.reserve_end_time, b.borrow_time, b.expected_return_time, b.actual_return_time,
+               b.status, b.reject_reason, b.approval_by, b.approval_time, b.overdue_days, b.overdue_reason,
+               b.review_quality_score, b.review_package_score, b.review_service_score, b.review_content,
+               b.review_time, b.review_by, b.del_flag,
+               b.create_by, b.create_time, b.update_by, b.update_time, b.remark
+        from sp_equipment_borrow b
+        left join sp_equipment_asset a on b.asset_id = a.asset_id
+        left join sys_user u on b.user_id = u.user_id
+    </sql>
+
+    <select id="selectBorrowById" parameterType="Long" resultMap="SpEquipmentBorrowResult">
+        <include refid="selectBorrowVo"/>
+        where b.borrow_id = #{borrowId} and b.del_flag = '0'
+    </select>
+
+    <select id="selectBorrowList" parameterType="com.bishe.system.domain.sports.SpEquipmentBorrow" resultMap="SpEquipmentBorrowResult">
+        <include refid="selectBorrowVo"/>
+        <where>
+            b.del_flag = '0'
+            <if test="assetId != null">and b.asset_id = #{assetId}</if>
+            <if test="userId != null">and b.user_id = #{userId}</if>
+            <if test="userName != null and userName != ''">and u.user_name like concat('%', #{userName}, '%')</if>
+            <if test="status != null and status != ''">and b.status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">and b.create_time &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''">and b.create_time &lt;= #{params.endTime}</if>
+        </where>
+        order by b.borrow_id desc
+    </select>
+
+    <select id="selectMyBorrowList" parameterType="com.bishe.system.domain.sports.SpEquipmentBorrow" resultMap="SpEquipmentBorrowResult">
+        <include refid="selectBorrowVo"/>
+        <where>
+            b.del_flag = '0'
+            and b.user_id = #{userId}
+            <if test="status != null and status != ''">and b.status = #{status}</if>
+        </where>
+        order by b.borrow_id desc
+    </select>
+
+    <select id="selectOverdueBorrowList" parameterType="com.bishe.system.domain.sports.SpEquipmentBorrow" resultMap="SpEquipmentBorrowResult">
+        <include refid="selectBorrowVo"/>
+        <where>
+            b.del_flag = '0' and b.status = '5'
+            <if test="pendingReasonOnly != null and pendingReasonOnly != '' and pendingReasonOnly == '1'">
+                and (b.overdue_reason is null or b.overdue_reason = '')
+            </if>
+        </where>
+        order by b.overdue_days desc, b.borrow_id desc
+    </select>
+
+    <select id="selectOverdueDashboard" resultType="java.util.HashMap">
+        select
+            count(1) as totalOverdue,
+            ifnull(sum(case when b.overdue_days &gt;= 7 then 1 else 0 end), 0) as severeOverdue,
+            ifnull(sum(case when date(b.update_time) = curdate() then 1 else 0 end), 0) as todayNewOverdue,
+            ifnull(sum(case when b.overdue_reason is null or b.overdue_reason = '' then 1 else 0 end), 0) as pendingReasonFill,
+            round(ifnull(avg(case when b.overdue_days &gt; 0 then b.overdue_days end), 0), 1) as avgOverdueDays
+        from sp_equipment_borrow b
+        where b.del_flag = '0' and b.status = '5'
+    </select>
+
+    <select id="selectOverdueReasonStats" resultType="java.util.HashMap">
+        select
+            case
+                when b.overdue_reason is null or b.overdue_reason = '' then '未回填'
+                else b.overdue_reason
+            end as reasonLabel,
+            count(1) as total
+        from sp_equipment_borrow b
+        where b.del_flag = '0' and b.status = '5'
+        group by
+            case
+                when b.overdue_reason is null or b.overdue_reason = '' then '未回填'
+                else b.overdue_reason
+            end
+        order by total desc
+        limit 8
+    </select>
+
+    <insert id="insertBorrow" parameterType="com.bishe.system.domain.sports.SpEquipmentBorrow" useGeneratedKeys="true" keyProperty="borrowId">
+        insert into sp_equipment_borrow (
+            asset_id, user_id, quantity, reserve_start_time, reserve_end_time, expected_return_time, status,
+            remark, create_by, create_time
+        ) values (
+            #{assetId}, #{userId}, #{quantity}, #{reserveStartTime}, #{reserveEndTime}, #{expectedReturnTime}, #{status},
+            #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateBorrow" parameterType="com.bishe.system.domain.sports.SpEquipmentBorrow">
+        update sp_equipment_borrow
+        <set>
+            <if test="assetId != null">asset_id = #{assetId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="reserveStartTime != null">reserve_start_time = #{reserveStartTime},</if>
+            <if test="reserveEndTime != null">reserve_end_time = #{reserveEndTime},</if>
+            <if test="borrowTime != null">borrow_time = #{borrowTime},</if>
+            <if test="expectedReturnTime != null">expected_return_time = #{expectedReturnTime},</if>
+            <if test="actualReturnTime != null">actual_return_time = #{actualReturnTime},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="rejectReason != null">reject_reason = #{rejectReason},</if>
+            <if test="approvalBy != null">approval_by = #{approvalBy},</if>
+            <if test="approvalTime != null">approval_time = #{approvalTime},</if>
+            <if test="overdueDays != null">overdue_days = #{overdueDays},</if>
+            <if test="overdueReason != null">overdue_reason = #{overdueReason},</if>
+            <if test="reviewQualityScore != null">review_quality_score = #{reviewQualityScore},</if>
+            <if test="reviewPackageScore != null">review_package_score = #{reviewPackageScore},</if>
+            <if test="reviewServiceScore != null">review_service_score = #{reviewServiceScore},</if>
+            <if test="reviewContent != null">review_content = #{reviewContent},</if>
+            <if test="reviewTime != null">review_time = #{reviewTime},</if>
+            <if test="reviewBy != null">review_by = #{reviewBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where borrow_id = #{borrowId} and del_flag = '0'
+    </update>
+
+    <update id="refreshOverdueStatus">
+        update sp_equipment_borrow
+        set status = '5',
+            overdue_days = datediff(sysdate(), expected_return_time),
+            update_time = sysdate()
+        where del_flag = '0'
+          and status = '3'
+          and expected_return_time is not null
+          and expected_return_time &lt; sysdate()
+    </update>
+
+</mapper>

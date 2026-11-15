@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bishe.system.mapper.sports.SpEquipmentRepairMapper">
+
+    <resultMap id="SpEquipmentRepairResult" type="com.bishe.system.domain.sports.SpEquipmentRepair">
+        <result property="repairId" column="repair_id" />
+        <result property="assetId" column="asset_id" />
+        <result property="assetName" column="asset_name" />
+        <result property="userId" column="user_id" />
+        <result property="userName" column="user_name" />
+        <result property="faultDesc" column="fault_desc" />
+        <result property="faultImage" column="fault_image" />
+        <result property="faultReason" column="fault_reason" />
+        <result property="urgency" column="urgency" />
+        <result property="status" column="status" />
+        <result property="processNote" column="process_note" />
+        <result property="repairBy" column="repair_by" />
+        <result property="repairTime" column="repair_time" />
+        <result property="finishTime" column="finish_time" />
+        <result property="delFlag" column="del_flag" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="selectRepairVo">
+        select r.repair_id, r.asset_id, a.asset_name, r.user_id, u.user_name, r.fault_desc, r.fault_image, r.fault_reason,
+               r.urgency, r.status, r.process_note, r.repair_by, r.repair_time, r.finish_time, r.del_flag,
+               r.create_by, r.create_time, r.update_by, r.update_time, r.remark
+        from sp_equipment_repair r
+        left join sp_equipment_asset a on r.asset_id = a.asset_id
+        left join sys_user u on r.user_id = u.user_id
+    </sql>
+
+    <select id="selectRepairById" parameterType="Long" resultMap="SpEquipmentRepairResult">
+        <include refid="selectRepairVo"/>
+        where r.repair_id = #{repairId} and r.del_flag = '0'
+    </select>
+
+    <select id="selectRepairList" parameterType="com.bishe.system.domain.sports.SpEquipmentRepair" resultMap="SpEquipmentRepairResult">
+        <include refid="selectRepairVo"/>
+        <where>
+            r.del_flag = '0'
+            <if test="assetId != null">and r.asset_id = #{assetId}</if>
+            <if test="userId != null">and r.user_id = #{userId}</if>
+            <if test="userName != null and userName != ''">and u.user_name like concat('%', #{userName}, '%')</if>
+            <if test="faultReason != null and faultReason != ''">and r.fault_reason = #{faultReason}</if>
+            <if test="urgency != null and urgency != ''">and r.urgency = #{urgency}</if>
+            <if test="status != null and status != ''">and r.status = #{status}</if>
+        </where>
+        order by r.repair_id desc
+    </select>
+
+    <select id="selectMyRepairList" parameterType="com.bishe.system.domain.sports.SpEquipmentRepair" resultMap="SpEquipmentRepairResult">
+        <include refid="selectRepairVo"/>
+        <where>
+            r.del_flag = '0'
+            and r.user_id = #{userId}
+            <if test="status != null and status != ''">and r.status = #{status}</if>
+        </where>
+        order by r.repair_id desc
+    </select>
+
+    <insert id="insertRepair" parameterType="com.bishe.system.domain.sports.SpEquipmentRepair" useGeneratedKeys="true" keyProperty="repairId">
+        insert into sp_equipment_repair (
+            asset_id, user_id, fault_desc, fault_image, fault_reason, urgency, status, remark, create_by, create_time
+        ) values (
+            #{assetId}, #{userId}, #{faultDesc}, #{faultImage}, #{faultReason}, #{urgency}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateRepair" parameterType="com.bishe.system.domain.sports.SpEquipmentRepair">
+        update sp_equipment_repair
+        <set>
+            <if test="assetId != null">asset_id = #{assetId},</if>
+            <if test="faultDesc != null">fault_desc = #{faultDesc},</if>
+            <if test="faultImage != null">fault_image = #{faultImage},</if>
+            <if test="faultReason != null and faultReason != ''">fault_reason = #{faultReason},</if>
+            <if test="urgency != null and urgency != ''">urgency = #{urgency},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="processNote != null">process_note = #{processNote},</if>
+            <if test="repairBy != null">repair_by = #{repairBy},</if>
+            <if test="repairTime != null">repair_time = #{repairTime},</if>
+            <if test="finishTime != null">finish_time = #{finishTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where repair_id = #{repairId} and del_flag = '0'
+    </update>
+
+</mapper>

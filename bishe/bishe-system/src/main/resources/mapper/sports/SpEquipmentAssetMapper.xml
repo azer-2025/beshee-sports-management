@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bishe.system.mapper.sports.SpEquipmentAssetMapper">
+
+    <resultMap id="SpEquipmentAssetResult" type="com.bishe.system.domain.sports.SpEquipmentAsset">
+        <result property="assetId" column="asset_id" />
+        <result property="categoryId" column="category_id" />
+        <result property="categoryName" column="category_name" />
+        <result property="classType" column="class_type" />
+        <result property="assetName" column="asset_name" />
+        <result property="assetCode" column="asset_code" />
+        <result property="barcode" column="barcode" />
+        <result property="brand" column="brand" />
+        <result property="purchaseDate" column="purchase_date" />
+        <result property="purchasePrice" column="purchase_price" />
+        <result property="depreciationRate" column="depreciation_rate" />
+        <result property="serviceLifeYear" column="service_life_year" />
+        <result property="assetStatus" column="asset_status" />
+        <result property="auditStatus" column="audit_status" />
+        <result property="location" column="location" />
+        <result property="stockQty" column="stock_qty" />
+        <result property="availableQty" column="available_qty" />
+        <result property="coverImage" column="cover_image" />
+        <result property="delFlag" column="del_flag" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="selectAssetVo">
+        select a.asset_id, a.category_id, c.category_name, c.class_type, a.asset_name, a.asset_code, a.barcode, a.brand,
+               a.purchase_date, a.purchase_price, a.depreciation_rate, a.service_life_year, a.asset_status, a.audit_status,
+               a.location, a.stock_qty, a.available_qty, a.cover_image, a.del_flag, a.create_by, a.create_time, a.update_by,
+               a.update_time, a.remark
+        from sp_equipment_asset a
+        left join sp_equipment_category c on a.category_id = c.category_id and c.del_flag = '0'
+    </sql>
+
+    <select id="selectAssetById" parameterType="Long" resultMap="SpEquipmentAssetResult">
+        <include refid="selectAssetVo"/>
+        where a.asset_id = #{assetId} and a.del_flag = '0'
+    </select>
+
+    <select id="selectAssetList" parameterType="com.bishe.system.domain.sports.SpEquipmentAsset" resultMap="SpEquipmentAssetResult">
+        <include refid="selectAssetVo"/>
+        <where>
+            a.del_flag = '0'
+            <if test="categoryId != null">and a.category_id = #{categoryId}</if>
+            <if test="assetName != null and assetName != ''">and a.asset_name like concat('%', #{assetName}, '%')</if>
+            <if test="assetCode != null and assetCode != ''">and a.asset_code like concat('%', #{assetCode}, '%')</if>
+            <if test="searchValue != null and searchValue != ''">
+                and (a.asset_name like concat('%', #{searchValue}, '%')
+                     or a.asset_code like concat('%', #{searchValue}, '%')
+                     or c.category_name like concat('%', #{searchValue}, '%'))
+            </if>
+            <if test="barcode != null and barcode != ''">and a.barcode like concat('%', #{barcode}, '%')</if>
+            <if test="brand != null and brand != ''">and a.brand like concat('%', #{brand}, '%')</if>
+            <if test="assetStatus != null and assetStatus != ''">and a.asset_status = #{assetStatus}</if>
+            <if test="auditStatus != null and auditStatus != ''">and a.audit_status = #{auditStatus}</if>
+            <if test="classType != null and classType != ''">and c.class_type = #{classType}</if>
+        </where>
+        order by a.asset_id desc
+    </select>
+
+    <select id="selectAvailableAssetList" parameterType="com.bishe.system.domain.sports.SpEquipmentAsset" resultMap="SpEquipmentAssetResult">
+        <include refid="selectAssetVo"/>
+        <where>
+            a.del_flag = '0'
+            and a.audit_status = '1'
+            and a.available_qty > 0
+            and a.asset_status not in ('2', '3', '4')
+            <if test="categoryId != null">and a.category_id = #{categoryId}</if>
+            <if test="assetName != null and assetName != ''">and a.asset_name like concat('%', #{assetName}, '%')</if>
+            <if test="assetCode != null and assetCode != ''">and a.asset_code like concat('%', #{assetCode}, '%')</if>
+            <if test="searchValue != null and searchValue != ''">
+                and (a.asset_name like concat('%', #{searchValue}, '%')
+                     or a.asset_code like concat('%', #{searchValue}, '%')
+                     or c.category_name like concat('%', #{searchValue}, '%'))
+            </if>
+            <if test="classType != null and classType != ''">and c.class_type = #{classType}</if>
+        </where>
+        order by c.order_num asc, a.asset_id desc
+    </select>
+
+    <insert id="insertAsset" parameterType="com.bishe.system.domain.sports.SpEquipmentAsset" useGeneratedKeys="true" keyProperty="assetId">
+        insert into sp_equipment_asset (
+            category_id, asset_name, asset_code, barcode, brand, purchase_date, purchase_price, depreciation_rate,
+            service_life_year, asset_status, audit_status, location, stock_qty, available_qty, cover_image, remark,
+            create_by, create_time
+        ) values (
+            #{categoryId}, #{assetName}, #{assetCode}, #{barcode}, #{brand}, #{purchaseDate}, #{purchasePrice}, #{depreciationRate},
+            #{serviceLifeYear}, #{assetStatus}, #{auditStatus}, #{location}, #{stockQty}, #{availableQty}, #{coverImage}, #{remark},
+            #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateAsset" parameterType="com.bishe.system.domain.sports.SpEquipmentAsset">
+        update sp_equipment_asset
+        <set>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="assetName != null and assetName != ''">asset_name = #{assetName},</if>
+            <if test="assetCode != null and assetCode != ''">asset_code = #{assetCode},</if>
+            <if test="barcode != null">barcode = #{barcode},</if>
+            <if test="brand != null">brand = #{brand},</if>
+            <if test="purchaseDate != null">purchase_date = #{purchaseDate},</if>
+            <if test="purchasePrice != null">purchase_price = #{purchasePrice},</if>
+            <if test="depreciationRate != null">depreciation_rate = #{depreciationRate},</if>
+            <if test="serviceLifeYear != null">service_life_year = #{serviceLifeYear},</if>
+            <if test="assetStatus != null and assetStatus != ''">asset_status = #{assetStatus},</if>
+            <if test="auditStatus != null and auditStatus != ''">audit_status = #{auditStatus},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="stockQty != null">stock_qty = #{stockQty},</if>
+            <if test="availableQty != null">available_qty = #{availableQty},</if>
+            <if test="coverImage != null">cover_image = #{coverImage},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where asset_id = #{assetId} and del_flag = '0'
+    </update>
+
+    <update id="deleteAssetByIds" parameterType="Long">
+        update sp_equipment_asset
+        set del_flag = '2', update_time = sysdate()
+        where asset_id in
+        <foreach item="assetId" collection="array" open="(" separator="," close=")">
+            #{assetId}
+        </foreach>
+    </update>
+
+    <update id="updateAvailableQty">
+        update sp_equipment_asset
+        set available_qty = available_qty + #{deltaQty},
+            asset_status = case
+                when asset_status in ('2', '3', '4') then asset_status
+                when available_qty + #{deltaQty} &lt;= 0 then '1'
+                else '0'
+            end,
+            update_time = sysdate()
+        where asset_id = #{assetId}
+          and del_flag = '0'
+          and available_qty + #{deltaQty} &gt;= 0
+    </update>
+
+</mapper>
